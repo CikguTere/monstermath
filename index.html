@@ -66,8 +66,23 @@
         #balls-panel { top: 20px; left: 160px; color: #2980b9; }
         #timer-panel { top: 85px; left: 20px; color: #e67e22; font-size: 1rem; padding: 5px 15px; }
 
+        /* PAUSE BUTTON (New) */
+        #btn-pause {
+            position: absolute; top: 20px; right: 20px;
+            width: 50px; height: 50px;
+            background: white; border-radius: 50%;
+            border: 3px solid var(--dark);
+            font-size: 1.5rem; cursor: pointer; z-index: 40;
+            display: none; /* Hidden on login */
+            align-items: center; justify-content: center;
+            box-shadow: 0 4px 0 rgba(0,0,0,0.2);
+            transition: transform 0.1s;
+        }
+        #btn-pause:active { transform: translateY(2px); box-shadow: none; }
+
         #health-panel { 
-            top: 20px; right: 20px; background: transparent; box-shadow: none; border: none;
+            top: 20px; right: 80px; /* Geser dikit biar gak nabrak tombol pause */
+            background: transparent; box-shadow: none; border: none;
             display: flex; gap: 5px;
         }
         
@@ -115,6 +130,13 @@
         
         #login-screen { display: flex; } /* Start Visible */
         #gameover-screen { background: linear-gradient(135deg, #c0392b, #e74c3c); }
+        
+        /* PAUSE SCREEN STYLE */
+        #pause-screen {
+            background: rgba(44, 62, 80, 0.9);
+            backdrop-filter: blur(5px);
+            z-index: 150;
+        }
 
         .title-hero { 
             font-family: var(--font-main); font-size: 3rem; 
@@ -315,12 +337,23 @@
         <div id="score-panel" class="hud-panel"><span class="icon">⭐</span> <span id="score-display">0</span></div>
         <div id="balls-panel" class="hud-panel"><span class="icon">🔮</span> <span id="balls-display">0/10</span></div>
         <div id="timer-panel" class="hud-panel"><span id="timer-display">00:00</span></div>
+        
+        <!-- BUTTON PAUSE -->
+        <button id="btn-pause" onclick="togglePause()">⏸️</button>
+
         <div id="health-panel">
             <div id="h1" class="heart">❤️</div>
             <div id="h2" class="heart">❤️</div>
             <div id="h3" class="heart">❤️</div>
         </div>
         <div id="joystick-zone"><div id="joystick-knob"></div></div>
+    </div>
+
+    <!-- PAUSE SCREEN -->
+    <div id="pause-screen" class="full-screen">
+        <div class="title-hero">TERJEDA</div>
+        <button class="btn-primary" onclick="togglePause()">LANJUT MAIN</button>
+        <button class="btn-secondary" onclick="resetGame(true)">KELUAR (MENU)</button>
     </div>
 
     <!-- MODAL SOAL -->
@@ -356,7 +389,7 @@
                 <tbody id="leaderboard-body"></tbody>
             </table>
         </div>
-        <button class="btn-primary" onclick="location.reload()">🔄 MAIN LAGI</button>
+        <button class="btn-primary" onclick="resetGame(true)">🔄 MAIN LAGI</button>
     </div>
 
     <!-- SCREEN 5: GAME OVER -->
@@ -369,7 +402,7 @@
             </h2>
             <p style="margin-bottom: 20px;">Tapi skormu tetap bisa dicatat!</p>
             <button id="btn-submit-go" class="btn-primary" style="background: #c0392b; color: white; width: 100%; margin-bottom: 10px;" onclick="submitScore('btn-submit-go')">💾 SIMPAN SKOR</button>
-            <button class="btn-secondary" style="background: #7f8c8d; border: none; width: 100%;" onclick="location.reload()">🔄 COBA LAGI</button>
+            <button class="btn-secondary" style="background: #7f8c8d; border: none; width: 100%;" onclick="resetGame()">🔄 COBA LAGI</button>
         </div>
     </div>
 
@@ -388,6 +421,7 @@
         let particles = [];
         let balls = [], obstacles = [], monsters = [], terrain = [], water = [];
         let score = 0, foundCount = 0, isGameRunning = false, isPaused = false, activeBallIndex = -1;
+        let isManualPaused = false;
 
         const TILE_SIZE = 60, MAP_COLS = 50, MAP_ROWS = 40;
         const MAP_WIDTH = MAP_COLS * TILE_SIZE, MAP_HEIGHT = MAP_ROWS * TILE_SIZE;
@@ -422,6 +456,53 @@
             document.getElementById('login-form-container').style.display = 'none';
         }
 
+        // --- PAUSE LOGIC ---
+        function togglePause() {
+            if (!isGameRunning || (isPaused && !isManualPaused)) return;
+            if (isManualPaused) {
+                isManualPaused = false; isPaused = false;
+                document.getElementById('pause-screen').style.display = 'none';
+                document.getElementById('btn-pause').innerHTML = '⏸️';
+            } else {
+                isManualPaused = true; isPaused = true;
+                document.getElementById('pause-screen').style.display = 'flex';
+                document.getElementById('btn-pause').innerHTML = '▶️';
+            }
+        }
+
+        // --- RESET LOGIC (FIXED) ---
+        function resetGame(toMenu = false) {
+            // Stop game loop & timers
+            isGameRunning = false; isPaused = false; isManualPaused = false;
+            clearInterval(timerInterval);
+            
+            // Reset Vars
+            score = 0; foundCount = 0; finalTimeStr = "00:00";
+            player.health = 3; player.isInvincible = false;
+            player.x = MAP_WIDTH/2; player.y = MAP_HEIGHT/2;
+            
+            // Reset UI
+            document.getElementById('score-display').innerText = "0";
+            document.getElementById('balls-display').innerText = `0/${TOTAL_BALLS}`;
+            document.getElementById('timer-display').innerText = "00:00";
+            for(let i=1; i<=3; i++) document.getElementById(`h${i}`).classList.remove('lost');
+            document.getElementById('btn-pause').innerHTML = '⏸️';
+            
+            // Hide Screens
+            document.querySelectorAll('.full-screen').forEach(el => el.style.display = 'none');
+            document.getElementById('pause-screen').style.display = 'none';
+            
+            if(toMenu) {
+                document.getElementById('login-screen').style.display = 'flex';
+                document.getElementById('btn-pause').style.display = 'none';
+            } else {
+                // Instant Restart (Re-gen Map)
+                balls = []; obstacles = []; monsters = []; terrain = []; water = []; particles = [];
+                generateMap();
+                startGame(true); // true = skip login check
+            }
+        }
+
         // --- INIT ---
         function init() {
             resizeCanvas(); window.addEventListener('resize', resizeCanvas);
@@ -430,10 +511,13 @@
             if('ontouchstart' in window || navigator.maxTouchPoints > 0) {
                 document.getElementById('joystick-zone').style.display='block'; initJoystick();
             }
-            window.addEventListener('keydown', e=>updateKey(e,true));
+            window.addEventListener('keydown', e=>{
+                if (!e || !e.key) return; 
+                if(e.key === 'p' || e.key === 'P' || e.key === 'Escape') togglePause();
+                else updateKey(e,true);
+            });
             window.addEventListener('keyup', e=>updateKey(e,false));
             
-            // Dummy Data
             if(!localStorage.getItem('math_leaderboard')) {
                 localStorage.setItem('math_leaderboard', JSON.stringify([
                     {name: "Andi", class: "5", school: "SD 1", prov: "Jawa Barat", score: 90, timeStr: "02:30", timeSec: 150},
@@ -442,18 +526,32 @@
             }
         }
 
-        function startGame() {
-            const n = document.getElementById('login-name').value.trim();
-            const c = document.getElementById('login-class').value.trim();
-            const s = document.getElementById('login-school').value.trim();
-            const p = document.getElementById('login-province').value;
-            if(!n || !c || !s || !p) { alert("Data belum lengkap!"); return; }
-            currentUser = { name: n, class: c, school: s, prov: p };
+        function startGame(skipLogin = false) {
+            if(!skipLogin) {
+                const n = document.getElementById('login-name').value.trim();
+                const c = document.getElementById('login-class').value.trim();
+                const s = document.getElementById('login-school').value.trim();
+                const p = document.getElementById('login-province').value;
+                if(!n || !c || !s || !p) { alert("Data belum lengkap!"); return; }
+                currentUser = { name: n, class: c, school: s, prov: p };
+            }
 
             AudioSys.init();
             document.getElementById('login-screen').style.display = 'none';
-            if(!window.spriteError) document.getElementById('player-gif').style.display = 'block';
+            document.getElementById('btn-pause').style.display = 'flex'; 
+            if(!window.spriteError) {
+                const pGif = document.getElementById('player-gif');
+                pGif.style.display = 'block'; pGif.style.opacity = '1';
+            }
             
+            // Ensure clean state even if coming from login
+            if(!skipLogin) {
+               player.health = 3; score = 0; foundCount = 0;
+               for(let i=1; i<=3; i++) document.getElementById(`h${i}`).classList.remove('lost');
+               document.getElementById('score-display').innerText = "0";
+               document.getElementById('balls-display').innerText = `0/${TOTAL_BALLS}`;
+            }
+
             isGameRunning = true; startTime = Date.now();
             timerInterval = setInterval(updateTimer, 1000);
             gameLoop();
@@ -469,6 +567,9 @@
 
         // --- MAP GENERATION ---
         function generateMap() {
+            // Safe clear
+            balls = []; obstacles = []; monsters = []; terrain = []; water = []; particles = [];
+            
             for(let i=0; i<8; i++) water.push({x: Math.random()*MAP_WIDTH, y: Math.random()*MAP_HEIGHT, r: 80+Math.random()*100});
             for(let i=0; i<600; i++) terrain.push({x:Math.random()*MAP_WIDTH, y:Math.random()*MAP_HEIGHT, type: Math.random()>0.7 ? 'flower':'grass', color: Math.random()>0.7 ? ['#f1c40f','#e74c3c','#9b59b6'][Math.floor(Math.random()*3)] : '#27ae60'});
             
@@ -526,26 +627,15 @@
             }
 
             monsters.forEach(m => {
-                // LOGIKA KEJAR (CHASE)
                 let dist = Math.sqrt((player.x - m.x)**2 + (player.y - m.y)**2);
-                if(dist < 350) { // Radius deteksi
+                if(dist < 350) { 
                     let angle = Math.atan2(player.y - m.y, player.x - m.x);
-                    m.dx = Math.cos(angle) * 2; // Speed monster saat mengejar
-                    m.dy = Math.sin(angle) * 2;
+                    m.dx = Math.cos(angle) * 2; m.dy = Math.sin(angle) * 2;
                 }
-
-                // Move
                 m.x+=m.dx; m.y+=m.dy;
-                
-                // Bounce Logic
                 if(m.x<0||m.x>MAP_WIDTH) m.dx*=-1; 
                 if(m.y<0||m.y>MAP_HEIGHT) m.dy*=-1;
-                if(checkMonsterWall(m.x,m.y)) { 
-                    m.dx*=-1; m.dy*=-1; 
-                    // Dorong sedikit biar gak nyangkut
-                    m.x += m.dx * 5; 
-                    m.y += m.dy * 5; 
-                }
+                if(checkMonsterWall(m.x,m.y)) { m.dx*=-1; m.dy*=-1; m.x += m.dx * 5; m.y += m.dy * 5; }
                 
                 if(!player.isInvincible && Math.sqrt((player.x-m.x)**2+(player.y-m.y)**2) < player.size+m.r) takeDamage();
             });
@@ -641,7 +731,7 @@
             renderList.forEach(i=>{
                 if(i.type==='house') drawHouse(i.obj);
                 else if(i.type==='tree') drawTree(i.obj);
-                else if(i.type==='monster') drawMonster(i.obj); // NEW SLIME STYLE
+                else if(i.type==='monster') drawMonster(i.obj);
                 else if(i.type==='ball') drawBall(i.obj);
                 else if(i.type==='part') i.obj.draw(CTX);
             });
@@ -656,7 +746,7 @@
             }
         }
 
-        // --- DRAW OBJECTS (UPDATED SLIME) ---
+        // --- DRAW OBJECTS ---
         function drawTree(o) {
             CTX.fillStyle='rgba(0,0,0,0.2)'; CTX.beginPath(); CTX.ellipse(o.x+o.w/2,o.y+o.h-5,o.w/3,8,0,0,Math.PI*2); CTX.fill();
             CTX.fillStyle='#8d6e63'; CTX.fillRect(o.x+o.w/2-10, o.y+o.h-30, 20, 30);
@@ -672,38 +762,17 @@
             CTX.fillStyle=o.color; 
             CTX.beginPath(); CTX.moveTo(o.x-10,o.y+30); CTX.lineTo(o.x+o.w/2,o.y-10); CTX.lineTo(o.x+o.w+10,o.y+30); CTX.fill();
         }
-        
-        // --- NEW SLIME STYLE MONSTER ---
         function drawMonster(m) {
             let bounce = Math.sin(Date.now()/200 + m.offset)*5;
             let widthChange = bounce * 1.5;
-            
-            CTX.fillStyle='#e74c3c'; // Slime Red
-            CTX.beginPath();
-            
-            // Slime Base Shape (Droplet style)
-            CTX.moveTo(m.x - m.r - widthChange, m.y + 10); // Bottom Left
-            // Top Curve (Rounder)
-            CTX.bezierCurveTo(
-                m.x - m.r, m.y - m.r*1.5 + bounce, // Control point 1
-                m.x + m.r, m.y - m.r*1.5 + bounce, // Control point 2
-                m.x + m.r + widthChange, m.y + 10  // Bottom Right
-            );
-            // Bottom Flat/Wavy
-            CTX.quadraticCurveTo(m.x, m.y + 15, m.x - m.r - widthChange, m.y + 10);
-            CTX.fill();
-
-            // Eyes (Follow player slightly)
-            CTX.fillStyle='white'; 
-            CTX.beginPath(); CTX.arc(m.x-8, m.y-5+bounce, 6, 0, Math.PI*2); CTX.fill(); 
-            CTX.beginPath(); CTX.arc(m.x+8, m.y-5+bounce, 6, 0, Math.PI*2); CTX.fill();
-            
-            CTX.fillStyle='black'; 
-            let lookX = (player.x - m.x) * 0.02; lookX = Math.max(-2, Math.min(2, lookX));
-            CTX.beginPath(); CTX.arc(m.x-8+lookX, m.y-5+bounce, 2, 0, Math.PI*2); CTX.fill(); 
-            CTX.beginPath(); CTX.arc(m.x+8+lookX, m.y-5+bounce, 2, 0, Math.PI*2); CTX.fill();
+            CTX.fillStyle='#e74c3c'; CTX.beginPath();
+            CTX.moveTo(m.x - m.r - widthChange, m.y + 10);
+            CTX.bezierCurveTo(m.x - m.r, m.y - m.r*1.5 + bounce, m.x + m.r, m.y - m.r*1.5 + bounce, m.x + m.r + widthChange, m.y + 10);
+            CTX.quadraticCurveTo(m.x, m.y + 15, m.x - m.r - widthChange, m.y + 10); CTX.fill();
+            CTX.fillStyle='white'; CTX.beginPath(); CTX.arc(m.x-8, m.y-5+bounce, 6, 0, Math.PI*2); CTX.fill(); CTX.beginPath(); CTX.arc(m.x+8, m.y-5+bounce, 6, 0, Math.PI*2); CTX.fill();
+            CTX.fillStyle='black'; let lookX = (player.x - m.x) * 0.02; lookX = Math.max(-2, Math.min(2, lookX));
+            CTX.beginPath(); CTX.arc(m.x-8+lookX, m.y-5+bounce, 2, 0, Math.PI*2); CTX.fill(); CTX.beginPath(); CTX.arc(m.x+8+lookX, m.y-5+bounce, 2, 0, Math.PI*2); CTX.fill();
         }
-
         function drawBall(b) {
             let float = Math.sin(Date.now()/300)*5;
             CTX.shadowBlur=20; CTX.shadowColor='#f1c40f';
@@ -736,7 +805,14 @@
         }
         function resizeCanvas(){CANVAS.width=window.innerWidth;CANVAS.height=window.innerHeight;}
         function gameLoop(){if(!isGameRunning)return;if(!isPaused){update();draw();}requestAnimationFrame(gameLoop);}
-        function updateKey(e,s){const k=e.key.toLowerCase();if(['w','arrowup'].includes(k))keys.w=s;if(['a','arrowleft'].includes(k))keys.a=s;if(['s','arrowdown'].includes(k))keys.s=s;if(['d','arrowright'].includes(k))keys.d=s;}
+        function updateKey(e,s){
+            if (!e || !e.key) return; 
+            const k=e.key.toLowerCase();
+            if(['w','arrowup'].includes(k))keys.w=s;
+            if(['a','arrowleft'].includes(k))keys.a=s;
+            if(['s','arrowdown'].includes(k))keys.s=s;
+            if(['d','arrowright'].includes(k))keys.d=s;
+        }
         function doDrag(e){e.preventDefault();const t=e.touches[0],r=document.getElementById('joystick-zone').getBoundingClientRect(),c={x:r.width/2,y:r.height/2};let x=t.clientX-r.left-c.x,y=t.clientY-r.top-c.y,d=Math.sqrt(x*x+y*y),m=r.width/2;if(d>m){x=(x/d)*m;y=(y/d)*m}document.getElementById('joystick-knob').style.transform=`translate(calc(-50% + ${x}px), calc(-50% + ${y}px))`;joystick.dx=x/m;joystick.dy=y/m;}
         function initJoystick(){const z=document.getElementById('joystick-zone');z.addEventListener('touchstart',e=>{joystick.active=true;doDrag(e)},{passive:false});z.addEventListener('touchmove',doDrag,{passive:false});z.addEventListener('touchend',()=>{joystick.active=false;joystick.dx=0;joystick.dy=0;document.getElementById('joystick-knob').style.transform=`translate(-50%,-50%)`})}
         
