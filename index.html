@@ -144,11 +144,11 @@
         }
         
         #login-form-container {
-            display: none; width: 100%; max-width: 400px;
+            display: none; /* FIX: Hidden by default */
+            width: 100%; max-width: 400px;
             animation: slideUp 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            /* Fix for responsiveness */
-            max-height: 90vh; /* Don't exceed viewport height */
-            display: flex; flex-direction: column;
+            max-height: 90vh; 
+            flex-direction: column;
         }
 
         @keyframes slideUp { from { transform: translateY(50px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
@@ -158,12 +158,10 @@
             background: rgba(255,255,255,0.9); padding: 25px; border-radius: 25px;
             box-shadow: 0 20px 50px rgba(0,0,0,0.3); width: 100%;
             border: 5px solid rgba(255,255,255,0.5); position: relative;
-            /* Scrollable content if screen is small */
             max-height: 80vh; 
             overflow-y: auto;
-            scrollbar-width: thin; /* Firefox */
+            scrollbar-width: thin;
         }
-        /* Webkit scrollbar styling */
         .login-card::-webkit-scrollbar { width: 6px; }
         .login-card::-webkit-scrollbar-thumb { background-color: rgba(0,0,0,0.2); border-radius: 3px; }
 
