@@ -408,7 +408,7 @@
 
     <script>
         // --- CONFIG ---
-        const GOOGLE_SCRIPT_URL = "AKfycbxj1K2Jaxx8J6QdvHeXPEicfg1P2TwgmbARpK3B4u9flMRuFedvKUQ4Kw-UrMbyBQIo"; 
+        const GOOGLE_SCRIPT_URL = "AKfycbzN2VuRRU9kWdVvxDgtn8DSA54RoaKt5us5LLPVcC3A3f4LEKUdVTTrzje7bsceTZ9s"; 
         const CANVAS = document.getElementById('gameCanvas');
         const CTX = CANVAS.getContext('2d');
         const TOTAL_BALLS = 10;
@@ -470,36 +470,32 @@
             }
         }
 
-        // --- RESET LOGIC (FIXED) ---
+        // --- RESET LOGIC ---
         function resetGame(toMenu = false) {
-            // Stop game loop & timers
             isGameRunning = false; isPaused = false; isManualPaused = false;
             clearInterval(timerInterval);
             
-            // Reset Vars
             score = 0; foundCount = 0; finalTimeStr = "00:00";
             player.health = 3; player.isInvincible = false;
             player.x = MAP_WIDTH/2; player.y = MAP_HEIGHT/2;
             
-            // Reset UI
             document.getElementById('score-display').innerText = "0";
             document.getElementById('balls-display').innerText = `0/${TOTAL_BALLS}`;
             document.getElementById('timer-display').innerText = "00:00";
             for(let i=1; i<=3; i++) document.getElementById(`h${i}`).classList.remove('lost');
             document.getElementById('btn-pause').innerHTML = '⏸️';
             
-            // Hide Screens
             document.querySelectorAll('.full-screen').forEach(el => el.style.display = 'none');
             document.getElementById('pause-screen').style.display = 'none';
             
             if(toMenu) {
                 document.getElementById('login-screen').style.display = 'flex';
                 document.getElementById('btn-pause').style.display = 'none';
+                document.getElementById('login-initial').style.display = 'flex';
+                document.getElementById('login-form-container').style.display = 'none';
             } else {
-                // Instant Restart (Re-gen Map)
-                balls = []; obstacles = []; monsters = []; terrain = []; water = []; particles = [];
                 generateMap();
-                startGame(true); // true = skip login check
+                startGame(true); 
             }
         }
 
@@ -544,7 +540,6 @@
                 pGif.style.display = 'block'; pGif.style.opacity = '1';
             }
             
-            // Ensure clean state even if coming from login
             if(!skipLogin) {
                player.health = 3; score = 0; foundCount = 0;
                for(let i=1; i<=3; i++) document.getElementById(`h${i}`).classList.remove('lost');
@@ -567,7 +562,6 @@
 
         // --- MAP GENERATION ---
         function generateMap() {
-            // Safe clear
             balls = []; obstacles = []; monsters = []; terrain = []; water = []; particles = [];
             
             for(let i=0; i<8; i++) water.push({x: Math.random()*MAP_WIDTH, y: Math.random()*MAP_HEIGHT, r: 80+Math.random()*100});
@@ -731,7 +725,7 @@
             renderList.forEach(i=>{
                 if(i.type==='house') drawHouse(i.obj);
                 else if(i.type==='tree') drawTree(i.obj);
-                else if(i.type==='monster') drawMonster(i.obj);
+                else if(i.type==='monster') drawMonster(i.obj); // NEW SLIME STYLE
                 else if(i.type==='ball') drawBall(i.obj);
                 else if(i.type==='part') i.obj.draw(CTX);
             });
@@ -746,7 +740,7 @@
             }
         }
 
-        // --- DRAW OBJECTS ---
+        // --- DRAW OBJECTS (UPDATED SLIME) ---
         function drawTree(o) {
             CTX.fillStyle='rgba(0,0,0,0.2)'; CTX.beginPath(); CTX.ellipse(o.x+o.w/2,o.y+o.h-5,o.w/3,8,0,0,Math.PI*2); CTX.fill();
             CTX.fillStyle='#8d6e63'; CTX.fillRect(o.x+o.w/2-10, o.y+o.h-30, 20, 30);
@@ -762,17 +756,38 @@
             CTX.fillStyle=o.color; 
             CTX.beginPath(); CTX.moveTo(o.x-10,o.y+30); CTX.lineTo(o.x+o.w/2,o.y-10); CTX.lineTo(o.x+o.w+10,o.y+30); CTX.fill();
         }
+        
+        // --- NEW SLIME STYLE MONSTER ---
         function drawMonster(m) {
             let bounce = Math.sin(Date.now()/200 + m.offset)*5;
             let widthChange = bounce * 1.5;
-            CTX.fillStyle='#e74c3c'; CTX.beginPath();
-            CTX.moveTo(m.x - m.r - widthChange, m.y + 10);
-            CTX.bezierCurveTo(m.x - m.r, m.y - m.r*1.5 + bounce, m.x + m.r, m.y - m.r*1.5 + bounce, m.x + m.r + widthChange, m.y + 10);
-            CTX.quadraticCurveTo(m.x, m.y + 15, m.x - m.r - widthChange, m.y + 10); CTX.fill();
-            CTX.fillStyle='white'; CTX.beginPath(); CTX.arc(m.x-8, m.y-5+bounce, 6, 0, Math.PI*2); CTX.fill(); CTX.beginPath(); CTX.arc(m.x+8, m.y-5+bounce, 6, 0, Math.PI*2); CTX.fill();
-            CTX.fillStyle='black'; let lookX = (player.x - m.x) * 0.02; lookX = Math.max(-2, Math.min(2, lookX));
-            CTX.beginPath(); CTX.arc(m.x-8+lookX, m.y-5+bounce, 2, 0, Math.PI*2); CTX.fill(); CTX.beginPath(); CTX.arc(m.x+8+lookX, m.y-5+bounce, 2, 0, Math.PI*2); CTX.fill();
+            
+            CTX.fillStyle='#e74c3c'; // Slime Red
+            CTX.beginPath();
+            
+            // Slime Base Shape (Droplet style)
+            CTX.moveTo(m.x - m.r - widthChange, m.y + 10); // Bottom Left
+            // Top Curve (Rounder)
+            CTX.bezierCurveTo(
+                m.x - m.r, m.y - m.r*1.5 + bounce, // Control point 1
+                m.x + m.r, m.y - m.r*1.5 + bounce, // Control point 2
+                m.x + m.r + widthChange, m.y + 10  // Bottom Right
+            );
+            // Bottom Flat/Wavy
+            CTX.quadraticCurveTo(m.x, m.y + 15, m.x - m.r - widthChange, m.y + 10);
+            CTX.fill();
+
+            // Eyes (Follow player slightly)
+            CTX.fillStyle='white'; 
+            CTX.beginPath(); CTX.arc(m.x-8, m.y-5+bounce, 6, 0, Math.PI*2); CTX.fill(); 
+            CTX.beginPath(); CTX.arc(m.x+8, m.y-5+bounce, 6, 0, Math.PI*2); CTX.fill();
+            
+            CTX.fillStyle='black'; 
+            let lookX = (player.x - m.x) * 0.02; lookX = Math.max(-2, Math.min(2, lookX));
+            CTX.beginPath(); CTX.arc(m.x-8+lookX, m.y-5+bounce, 2, 0, Math.PI*2); CTX.fill(); 
+            CTX.beginPath(); CTX.arc(m.x+8+lookX, m.y-5+bounce, 2, 0, Math.PI*2); CTX.fill();
         }
+
         function drawBall(b) {
             let float = Math.sin(Date.now()/300)*5;
             CTX.shadowBlur=20; CTX.shadowColor='#f1c40f';
